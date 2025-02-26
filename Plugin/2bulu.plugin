@@ -1,3 +1,9 @@
+[Plugin]
+name = 两步路云空间助手
+desc = 自动签到+容量监控
+author = painter-7
+version = 2025.02.25v1
+
 [Script]
 # 数据捕获模块
 http-request ^https:\/\/helper\.2bulu\.com\/dataSpace\/(claimCapacity|getStorageSpace) script-path=backend_capture.js,timeout=10,enable=true,tag=两步路数据捕获
