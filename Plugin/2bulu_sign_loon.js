@@ -1,4 +1,3 @@
-/*
 [Script]
 # Cookie 捕获规则
 http-request ^https:\/\/user\.2bulu\.com\/login\/login\.do script-path=https://example.com/2bulu_sign_loon.js,requires-body=true,timeout=10,tag=两步路Cookie获取
@@ -8,7 +7,7 @@ cron "0 7,12,18 * * *" script-path=https://example.com/2bulu_sign_loon.js,timeou
 
 [MITM]
 hostname = user.2bulu.com, api.2bulu.com
-*/
+
 
 // ====================
 // 核心配置区域
