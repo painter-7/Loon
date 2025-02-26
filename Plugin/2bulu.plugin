@@ -1,7 +1,7 @@
 [Plugin]
 name = 两步路云空间助手
 desc = 自动签到+容量监控
-version = 2025-02-26 14:00:00
+version = 2.0.1
 author = painter-7
 minLoonVersion = 3.2.0
 icon = https://raw.githubusercontent.com/painter-7/Loon/main/Icon/2bulu.png
