@@ -1,11 +1,3 @@
-[Plugin]
-name = 两步路云空间助手
-desc = 自动签到+容量监控
-version = 2.0.1
-author = painter-7
-minLoonVersion = 3.2.0
-icon = https://raw.githubusercontent.com/painter-7/Loon/main/Icon/2bulu.png
-updateURL = https://raw.githubusercontent.com/painter-7/Loon/main/Plugin/2bulu.plugin
 
 [mitm]
 hostname = helper.2bulu.com
