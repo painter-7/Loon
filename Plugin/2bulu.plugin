@@ -1,1 +1,94 @@
+[Script]
+# 数据捕获模块
+http-request ^https:\/\/helper\.2bulu\.com\/dataSpace\/(claimCapacity|getStorageSpace) script-path=backend_capture.js,timeout=10,enable=true,tag=两步路数据捕获
 
+# 每日定时任务
+cron "5 9 * * *" script-path=2bulu.plugin,timeout=30,enable=true,tag=两步路自动任务
+
+[Local]
+# 后台捕获模块 (合并到插件文件)
+^https?://helper\.2bulu\.com/dataSpace/(claimCapacity|getStorageSpace) url script-response-body
+(() => {
+  const captureMap = {
+    authCode: $request.url.match(/authCode=([^&]+)/)?.[1],
+    userId: $request.url.match(/userId=(\d+)/)?.[1],
+    psign: $request.url.match(/psign=([a-f0-9]+)/)?.[1],
+    token: ($request.headers['Cookie'] || '').match(/token=([^;]+)/)?.[1]
+  };
+
+  Object.entries(captureMap).forEach(([k,v]) => {
+    if(v) $persistentStore.write(v, `2bulu_${k}`);
+  });
+  $done();
+})();
+
+# 主功能模块 (合并到插件文件)
+const _2bulu = {
+  base: "https://helper.2bulu.com/dataSpace/",
+  cfg: {
+    psign: $persistentStore.read("2bulu_psign"),
+    auth: $persistentStore.read("2bulu_authCode"),
+    uid: $persistentStore.read("2bulu_userId"),
+    token: $persistentStore.read("2bulu_token")
+  },
+
+  async run() {
+    if (!this.check()) return;
+    
+    try {
+      const signRes = await this.sign();
+      const space = await this.space();
+      this.notify(signRes, space);
+    } catch (e) {
+      $notification.post("❗ 异常中断", e.message, "建议查看调试日志");
+    }
+  },
+
+  sign: async () => {
+    const res = await $http.post({
+      url: `${_2bulu.base}claimCapacity?${_2bulu.query()}`,
+      headers: _2bulu.headers()
+    });
+    if (res.data?.errCode !== "0") throw new Error(`CODE:${res.data?.errCode}`);
+    return { capacity: _2bulu.parseCapacity(res) };
+  },
+
+  space: async () => {
+    const res = await $http.get({
+      url: `${_2bulu.base}getStorageSpace?${_2bulu.query()}`,
+      headers: _2bulu.headers()
+    });
+    return _2bulu.format(res.data?.data);
+  },
+
+  query: () => `psign=${_2bulu.cfg.psign}&authCode=${_2bulu.cfg.auth}&userId=${_2bulu.cfg.uid}&p_appVersion=7.8.9`,
+
+  headers: () => ({
+    "Cookie": `authCode=${_2bulu.cfg.auth}; token=${_2bulu.cfg.token}`,
+    "User-Agent": "OutdoorAssistant/7.8.9 (2bulu.plugin)"
+  }),
+
+  check: () => [ 'auth', 'uid', 'psign', 'token' ].every(k => _2bulu.cfg[k]) 
+    || $notification.post("🔑 凭证缺失", "请先在APP完成一次手动操作", ""),
+
+  parseCapacity: (res) => {
+    const task = res.data.data?.dataSpaceTaskInfos?.find(t => t.type === 0);
+    return task ? `${task.capacity / 1048576}MB` : "容量数据异常";
+  },
+
+  format: (data) => ({
+    total: `${(data.sumCapacity / 1073741824).toFixed(2)}GB`,
+    used: `${(data.useCapacity / 1073741824).toFixed(2)}GB`,
+    tasks: data.dataSpaceTaskInfos.filter(t => t.status === 0).length
+  }),
+
+  notify: (sign, space) => {
+    $notification.post("📦 云空间报告", 
+      `本次获得：${sign.capacity}\n存储状态：${space.used}已用/${space.total}总量`,
+      `待领取任务：${space.tasks}个 | 插件版本：v2.0`
+    );
+  }
+};
+
+// 执行入口
+_2bulu.run();
