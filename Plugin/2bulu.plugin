@@ -1,11 +1,14 @@
 [Plugin]
 name = 两步路云空间助手
 desc = 自动签到+容量监控
-version = 2024-03-20 14:00:00
+version = 2025-02-26 14:00:00
 author = painter-7
 minLoonVersion = 3.2.0
 icon = https://raw.githubusercontent.com/painter-7/Loon/main/Icon/2bulu.png
 updateURL = https://raw.githubusercontent.com/painter-7/Loon/main/Plugin/2bulu.plugin
+
+[mitm]
+hostname = helper.2bulu.com
 
 [Script]
 # 数据捕获模块
@@ -23,7 +26,7 @@ cron "0 9 * * *" script-path=https://raw.githubusercontent.com/painter-7/Loon/ma
     psign: $request.url.match(/psign=([a-f0-9]+)/)?.[1],
     token: ($request.headers['Cookie'] || '').match(/token=([^;]+)/)?.[1]
   };
-  
+  
   Object.entries(captureKeys).forEach(([k,v]) => {
     if(v) $persistentStore.write(v, `2bulu_${k}`);
   });
