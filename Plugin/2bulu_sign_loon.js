@@ -13,10 +13,10 @@ repository = https://raw.githubusercontent.com/yourname/repo/main/2bulu.plugin
 [Script]
 # 自动捕获Cookie
 http-request ^https?:\/\/www\.2bulu\.com\/user\/sign_in\.htm script-path=
-https://raw.githubusercontent.com/yourname/repo/main/2bulu_all_in_one.js,timeout=30,enable=true
+https://raw.githubusercontent.com/painter-7/Loon/main/Plugin/2bulu_sign_loon.js,timeout=30,enable=true
 
 # 每日定时签到
-cron "5 9 * * *" script-path=https://raw.githubusercontent.com/yourname/repo/main/2bulu_all_in_one.js, timeout=30, enable=true
+cron "5 9 * * *" script-path=https://raw.githubusercontent.com/painter-7/Loon/main/Plugin/2bulu_sign_loon.js, timeout=30, enable=true
 
 [MITM]
 hostname = www.2bulu.com
