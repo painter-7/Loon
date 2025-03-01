@@ -2,14 +2,6 @@
 # 功能：自动Cookie捕获 + 定时签到 + 凭证维护
 # 更新时间：2024-02-20
 
-[Plugin]
-name = 两步路云签到
-desc = 自动维护Cookie并执行每日签到
-author = YourName
-version = 2.1
-icon = https://static.2bulu.com/favicon.ico
-repository = https://raw.githubusercontent.com/yourname/repo/main/2bulu.plugin
-
 [Script]
 # 自动捕获Cookie
 http-request ^https?:\/\/www\.2bulu\.com\/user\/sign_in\.htm script-path=
@@ -20,9 +12,6 @@ cron "5 9 * * *" script-path=https://raw.githubusercontent.com/painter-7/Loon/ma
 
 [MITM]
 hostname = www.2bulu.com
-
-[Rewrite]
-enable = true
 
 [Script Code]
 // 两步路核心逻辑代码
