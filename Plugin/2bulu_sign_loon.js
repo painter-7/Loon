@@ -1,172 +1,121 @@
-[Script]
-# Cookie 捕获规则
-http-request ^https:\/\/user\.2bulu\.com\/login\/login\.do script-path=https://example.com/2bulu_sign_loon.js,requires-body=true,timeout=10,tag=两步路Cookie获取
+# 两步路助手全能插件 v2.1
+# 功能：自动Cookie捕获 + 定时签到 + 凭证维护
+# 更新时间：2024-02-20
 
-# 定时签到任务（每日7点、12点、18点执行）
-cron "0 7,12,18 * * *" script-path=https://example.com/2bulu_sign_loon.js,timeout=120,tag=两步路签到
+[Plugin]
+name = 两步路云签到
+desc = 自动维护Cookie并执行每日签到
+author = YourName
+version = 2.1
+icon = https://static.2bulu.com/favicon.ico
+repository = https://raw.githubusercontent.com/yourname/repo/main/2bulu.plugin
+
+[Script]
+# 自动捕获Cookie
+http-request ^https?:\/\/www\.2bulu\.com\/user\/sign_in\.htm script-path=
+https://raw.githubusercontent.com/yourname/repo/main/2bulu_all_in_one.js,timeout=30,enable=true
+
+# 每日定时签到
+cron "5 9 * * *" script-path=https://raw.githubusercontent.com/yourname/repo/main/2bulu_all_in_one.js, timeout=30, enable=true
 
 [MITM]
-hostname = user.2bulu.com, api.2bulu.com
+hostname = www.2bulu.com
 
+[Rewrite]
+enable = true
 
-// ====================
-// 核心配置区域
-// ====================
+[Script Code]
+// 两步路核心逻辑代码
+const $ = new API("2bulu");
 const CONFIG = {
-  STORAGE_KEY: "twostep_data",    // 持久化存储键名
-  ACCOUNT_SPLITOR: "\n",         // 多账号分隔符（换行符）
-  NOTIFY_ENABLED: true,          // 是否启用通知
-  API_HOST: "https://api.2bulu.com",
-  USER_AGENT: "2bulu/4.4.4 (iPhone; iOS 15.4; Scale/3.00)"
+  HOST: "www.2bulu.com",
+  KEY: "两步路Cookie",
+  SIGN_API: "/user/sign_in.htm"
 };
 
-// ====================
-// 工具函数区域
-// ====================
-// 生成随机延迟（1~3秒）
-const randomDelay = () => Math.floor(Math.random() * 2000) + 1000;
-
-// 格式化时间戳
-const formatTime = (seconds) => {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return `${h}小时${m}分钟`;
-};
-
-// ====================
-// 用户类封装
-// ====================
-class TwoStepUser {
-  constructor(account, password) {
-    this.account = account;
-    this.password = password;
-    this.authToken = null;
-  }
-
-  // 统一请求方法
-  async request(method, path, body = null, headers = {}) {
-    const url = `${CONFIG.API_HOST}${path}`;
-    await new Promise(resolve => setTimeout(resolve, randomDelay()));
-
-    return new Promise((resolve) => {
-      $httpClient[method.toLowerCase()]({
-        url,
-        headers: {
-          'User-Agent': CONFIG.USER_AGENT,
-          'Authorization': this.authToken ? `Bearer ${this.authToken}` : '',
-          ...headers
-        },
-        body
-      }, (error, response, data) => {
-        if (error || !response) {
-          CONFIG.NOTIFY_ENABLED && $notification.post('请求失败', url, error || '无响应');
-          resolve(null);
-          return;
-        }
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          resolve(null);
-        }
-      });
-    });
-  }
-
-  // 登录获取 Token
-  async login() {
-    const result = await this.request('POST', '/v2/user/login', {
-      account: this.account,
-      password: this.password,
-      loginType: 1
-    });
-
-    if (result?.code === 200) {
-      this.authToken = result.data.token;
-      return true;
-    }
-    return false;
-  }
-
-  // 执行签到
-  async sign() {
-    const result = await this.request('POST', '/v3/sign/sign', null, {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    });
-
-    if (result?.code === 200) {
-      return result.data.rewards[0];
-    }
-    return null;
-  }
-}
-
-// ====================
-// 主逻辑流程
-// ====================
-async function main() {
-  // 读取存储数据
-  const rawData = $persistentStore.read(CONFIG.STORAGE_KEY);
-  if (!rawData) {
-    $notification.post('配置错误', '', '请先通过登录接口捕获 Cookie');
-    return $done();
-  }
-
-  // 初始化用户列表
-  const users = rawData.split(CONFIG.ACCOUNT_SPLITOR)
-    .filter(x => x.includes(':'))
-    .map(x => {
-      const [account, password] = x.split(':');
-      return new TwoStepUser(account, password);
-    });
-
-  // 处理每个账号
-  const notifyMessages = [];
-  for (const user of users) {
-    let log = `账号 ${user.account}：`;
-    
-    try {
-      if (!await user.login()) {
-        log += '❌ 登录失败';
-        notifyMessages.push(log);
-        continue;
-      }
-
-      const reward = await user.sign();
-      if (reward) {
-        log += `🎉 签到成功 ${reward.name}x${reward.amount}`;
-      } else {
-        log += '⛔ 签到失败';
-      }
-    } catch (e) {
-      log += `⚠️ 异常: ${e.message}`;
-    }
-    
-    notifyMessages.push(log);
-  }
-
-  // 发送聚合通知
-  if (CONFIG.NOTIFY_ENABLED && notifyMessages.length > 0) {
-    $notification.post('两步路签到结果', '', notifyMessages.join('\n'));
-  }
-  $done();
-}
-
-// ====================
-// 执行入口判断
-// ====================
-if (typeof $request !== 'undefined') {
-  // Cookie 捕获逻辑
-  const isLoginRequest = $request.url.includes('/login');
-  const account = $request.body?.account?.trim();
-  const password = $request.body?.password?.trim();
-
-  if (isLoginRequest && account && password) {
-    const existing = $persistentStore.read(CONFIG.STORAGE_KEY) || '';
-    const newData = existing ? `${existing}\n${account}:${password}` : `${account}:${password}`;
-    $persistentStore.write(newData);
-    $notification.post('两步路账号已保存', account, '');
-  }
-  $done();
+if (typeof $request !== "undefined") {
+  handleRequest($request);
 } else {
-  main();
+  executeSign();
+}
+
+function handleRequest(req) {
+  try {
+    if (req.url.includes(CONFIG.SIGN_API)) {
+      const cookie = req.headers?.Cookie || req.headers?.cookie;
+      if (!cookie) return;
+      
+      const oldCookie = $.read(CONFIG.KEY);
+      if (cookie !== oldCookie) {
+        $.write(cookie, CONFIG.KEY);
+        $.notify("🍪 凭证更新", "", "检测到新Cookie");
+        verifyCookie(cookie);
+      }
+    }
+  } catch (e) {
+    $.log(`处理请求异常: ${e}`);
+  }
+  $done();
+}
+
+async function executeSign() {
+  const cookie = $.read(CONFIG.KEY);
+  if (!cookie) return $.notify("⚠️ 凭证缺失", "请手动签到一次");
+
+  try {
+    const resp = await $.post({
+      url: `https://${CONFIG.HOST}${CONFIG.SIGN_API}`,
+      headers: { Cookie: cookie }
+    });
+    parseResult(resp);
+  } catch (e) {
+    $.notify("🚨 签到失败", `错误: ${e}`);
+  }
+  $done();
+}
+
+function parseResult(resp) {
+  let title = "", msg = "";
+  switch (resp.status) {
+    case 200:
+      try {
+        const data = JSON.parse(resp.body);
+        title = data.result ? "✅ 签到成功" : "⏸️ 已签到";
+        msg = data.result ? `累计签到 ${data.data} 天` : "今日无需重复";
+      } catch (e) {
+        msg = "响应解析失败";
+      }
+      break;
+    case 401:
+      msg = "Cookie已失效";
+      $.write(null, CONFIG.KEY);
+      break;
+    default:
+      msg = `HTTP ${resp.status} 错误`;
+  }
+  $.notify(title, msg);
+}
+
+function verifyCookie(cookie) {
+  $.post({
+    url: `https://${CONFIG.HOST}${CONFIG.SIGN_API}`,
+    headers: { Cookie: cookie }
+  }, (err, resp) => {
+    if (err) return;
+    let msg = resp.status === 200 ? "凭证验证通过" : "验证失败";
+    $.log(`Cookie验证结果: ${msg}`);
+  });
+}
+
+/***** Loon API Wrapper *****/
+function API(name) {
+  this.name = name;
+  this.read = key => $persistentStore.read(key);
+  this.write = (val, key) => $persistentStore.write(val, key);
+  this.notify = (title, subtitle, content) => 
+    $notification.post(title, subtitle, content);
+  this.post = options => new Promise((resolve, reject) => {
+    $httpClient.post(options, (err, resp, body) => 
+      err ? reject(err) : resolve({status: resp.status, body}));
+  });
 }
